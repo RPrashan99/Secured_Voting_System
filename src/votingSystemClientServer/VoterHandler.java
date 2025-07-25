@@ -48,6 +48,7 @@ public class VoterHandler extends Thread{
     private PublicKey pkVsS;
     private PrivateKey skVsS;
     private String pKey;
+    private String aesKey;
     
 	//private final int AES_KEY_SIZE = 256;       // bits
     private final int GCM_IV_LENGTH = 12;       // bytes (recommended: 12)
@@ -233,7 +234,7 @@ public class VoterHandler extends Thread{
 		
 		//Decrypt AES key
 		String decryptedAESKey = decryptRSAText(splitedAESKey, skVsE);
-		
+		aesKey = decryptedAESKey;
 		System.out.println("Decrypted AES key: " + decryptedAESKey);
 		
 		//Decrypt vote Init Message
@@ -288,18 +289,21 @@ public class VoterHandler extends Thread{
     }
     
     public boolean verifyVoteSubmitMessage(String voteSubmitMessage) 
-    		throws NoSuchAlgorithmException {
+    		throws NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, InvalidAlgorithmParameterException {
     	
-//    	String[] messageSplit = voteSubmitMessage.split(",");
+    	String[] messageSplit = voteSubmitMessage.split(",");
+    	
+    	String IV = messageSplit[1];
+    	String encryptedJson = messageSplit[2];
 
-    	int index = voteSubmitMessage.indexOf('{');
-    	String jsonPart = voteSubmitMessage.substring(index);
+//    	int index = voteSubmitMessage.indexOf('{');
+//    	String jsonPart = voteSubmitMessage.substring(index);
     	
-    	//String decryptedJson = decryptAESText(jsonPart);
+    	String decryptedJson = decryptAESText(encryptedJson, aesKey, IV);
     	
-    	System.out.println("Decrypted Vote Submit Message: " + jsonPart);
+    	System.out.println("Decrypted Vote Submit Message: " + decryptedJson);
     	
-    	JSONObject extractedVoteSubmitMessage = new JSONObject(jsonPart);
+    	JSONObject extractedVoteSubmitMessage = new JSONObject(decryptedJson);
 		
 		String extractedVote = extractedVoteSubmitMessage.getString("vote");
 		BigInteger extractedUnblindedVote = extractedVoteSubmitMessage.getBigInteger("unblindedVote");

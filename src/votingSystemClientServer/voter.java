@@ -288,12 +288,14 @@ public class voter {
 		voteMessage.put("unblindedVote", unBlindedVoteInteger);
 		voteMessage.put("timeStamp", currentTimeUnblindString);
 		
-		String voteSubmitMessage = "Vote_Submit," + voteMessage.toString();
-		System.out.println("Original Vote Submit Message: " + voteSubmitMessage);
+		String voteMessageString = voteMessage.toString();
+		System.out.println("Original Vote Submit Message: " + voteMessageString);
 		
-		String[] listAES = encryptAESText(voteSubmitMessage, aesKey);
+		String[] listAES = encryptAESText(voteMessageString, aesKey);
 		
-		System.out.println("Encrypted Vote Submit Message: " + listAES[0].toString());
+		System.out.println("Encrypted Vote Submit Message: " + listAES[0]);
+		
+		String voteSubmitMessage = "Vote_Submit," + listAES[1] + "," + listAES[0];
 		
 		return voteSubmitMessage;
 	}
