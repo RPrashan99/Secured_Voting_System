@@ -300,17 +300,23 @@ public class voter {
 		return voteSubmitMessage;
 	}
 	
-	public static BigInteger unblindSignedVote(String signedInitReplyMessage) {
+	public static BigInteger unblindSignedVote(String signedInitReplyMessage) 
+			throws InvalidKeyException, IllegalBlockSizeException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException {
 		
 		BigInteger N = ((java.security.interfaces.RSAPublicKey) pkVsS).getModulus();
 		
 		String[] listSigned = signedInitReplyMessage.split(",");
 		
+		String iv = listSigned[2];
+		
 		//mode check and extract signed Blinded Vote
 		String extractedSignedBlindedVote = listSigned[1];
+		
+		//decrypt
+		String decryptedSignedBlindedVote = decryptAESText(extractedSignedBlindedVote, aesKey, iv);
 
 		//unblind the signed vote
-		BigInteger signedBlindedVoteInteger = new BigInteger(extractedSignedBlindedVote);
+		BigInteger signedBlindedVoteInteger = new BigInteger(decryptedSignedBlindedVote);
 		BigInteger unBlindedVoteInteger = signedBlindedVoteInteger.multiply(randomFactor.modInverse(N)).mod(N);
 		
 		System.out.println("unBlinded Vote: " + unBlindedVoteInteger);
@@ -318,11 +324,18 @@ public class voter {
 		return unBlindedVoteInteger;
 	}
 	
-	public static void recieveVoterID(String message) {
+	public static void recieveVoterID(String message) 
+			throws InvalidKeyException, IllegalBlockSizeException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException {
 		
 		String[] stringSplit = message.split(",");
 		
-		voterID = stringSplit[1];
+		String iv = stringSplit[2];
+		String encryptedVoterID = stringSplit[1];
+		
+		//decrypt voterID
+		String decryptedVoterID = decryptAESText(encryptedVoterID, aesKey, iv);
+		
+		voterID = decryptedVoterID;
 		
 	}
 	
@@ -403,18 +416,18 @@ public class voter {
 		return list;
 	}
 	
-	public static String decryptAESText(String base64Encrypted, String base64Key, String base64IV) 
+	public static String decryptAESText(String base64Encrypted, SecretKey aesKey, String base64IV) 
 			throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException {
 		
 		byte[] decodedEncrypted = Base64.getDecoder().decode(base64Encrypted);
-        byte[] decodedKey = Base64.getDecoder().decode(base64Key);
+        //byte[] decodedKey = Base64.getDecoder().decode(base64Key);
         byte[] decodedIV = Base64.getDecoder().decode(base64IV);
 
-        SecretKeySpec keySpec = new SecretKeySpec(decodedKey, "AES");
+        //SecretKeySpec keySpec = new SecretKeySpec(decodedKey, "AES");
         GCMParameterSpec gcmSpec2 = new GCMParameterSpec(GCM_TAG_LENGTH, decodedIV);
 
         Cipher decryptCipher = Cipher.getInstance("AES/GCM/NoPadding");
-        decryptCipher.init(Cipher.DECRYPT_MODE, keySpec, gcmSpec2);
+        decryptCipher.init(Cipher.DECRYPT_MODE, aesKey, gcmSpec2);
 
         byte[] decryptedBytes = decryptCipher.doFinal(decodedEncrypted);
         String decryptedMessage = new String(decryptedBytes, StandardCharsets.UTF_8);

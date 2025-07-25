@@ -14,6 +14,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.Key;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
@@ -110,9 +111,7 @@ public class VoterHandler extends Thread{
                 	
                 	if (isSubmitVerified) {
                 		
-                		String ID = createVoterID();
-                		
-                		String submitReply = "Vote_Submit_Reply," + ID;
+                		String submitReply = createVoterID();
                 		
                 		out.println(submitReply);
                 		
@@ -207,7 +206,11 @@ public class VoterHandler extends Thread{
 			BigInteger Nv = ((java.security.interfaces.RSAPrivateKey) skVsS).getModulus();
 			BigInteger signedBlindedVote = extrctedBlindedVote.modPow(d, Nv);
 			
-			SignedBlindedVoteMessage = "Vote_Init_Reply," + signedBlindedVote;
+			String signedBlindedVoteString = signedBlindedVote.toString();
+			
+			String[] aesList = encryptAESText(signedBlindedVoteString, aesKey);
+			
+			SignedBlindedVoteMessage = "Vote_Init_Reply," + aesList[0] + "," + aesList[1];
 			
 			System.out.println("Signed Blinded message: " + SignedBlindedVoteMessage);
 			
@@ -337,7 +340,8 @@ public class VoterHandler extends Thread{
 		}
     }
     
-    public String createVoterID() throws NoSuchAlgorithmException {
+    public String createVoterID() 
+    		throws NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, InvalidAlgorithmParameterException {
     	
     	SecureRandom secureRandom = new SecureRandom();
         byte[] nonce = new byte[16];
@@ -352,7 +356,11 @@ public class VoterHandler extends Thread{
 		
 		System.out.println("Voter ID created: " + voterID);
 		
-		return voterID;
+		String[] encryptedList = encryptAESText(voterID, aesKey);
+		
+		String submitReply = "Vote_Submit_Reply," + encryptedList[0] + "," + encryptedList[1];
+		
+		return submitReply;
     }
     
     public String getVoterID() {
@@ -417,24 +425,28 @@ public class VoterHandler extends Thread{
 		
 	}
 	
-	public String[] encryptAESText(String text, SecretKey aesKey) 
+	public String[] encryptAESText(String text, String aesKey) 
 			throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException {
 
         //Generate random IV
         byte[] iv = new byte[GCM_IV_LENGTH];
         SecureRandom random = new SecureRandom();
         random.nextBytes(iv);
+        
+        byte[] decodedKey = Base64.getDecoder().decode(aesKey);
+        
+        SecretKeySpec keySpec = new SecretKeySpec(decodedKey, "AES");
 
         //Encrypt
         Cipher encryptCipher = Cipher.getInstance("AES/GCM/NoPadding");
         GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-        encryptCipher.init(Cipher.ENCRYPT_MODE, aesKey, gcmSpec);
+        encryptCipher.init(Cipher.ENCRYPT_MODE, keySpec, gcmSpec);
 
         byte[] encryptedBytes = encryptCipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
 
         // Base64 encode for transmission/storage
         String base64Encrypted = Base64.getEncoder().encodeToString(encryptedBytes);
-        String base64Key = Base64.getEncoder().encodeToString(aesKey.getEncoded());
+        String base64Key = Base64.getEncoder().encodeToString(((SecretKey) keySpec).getEncoded());
         String base64IV = Base64.getEncoder().encodeToString(iv);
 		
 		String[] list = {base64Encrypted, base64IV, base64Key};
